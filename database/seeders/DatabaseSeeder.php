@@ -21,5 +21,8 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // CSV読み込み
+        $this->call(QuestionSeeder::class);
     }
 }
