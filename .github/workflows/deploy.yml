@@ -83,21 +83,25 @@ jobs:
           # 最新コードを取得
           git pull --ff-only origin main
 
+          # Xserver上で使うPHPとComposer
+          PHP_BIN="/usr/bin/php8.3"
+          COMPOSER_BIN="/home/xs227617/bin/composer"
+
           # 本番用依存関係をインストール
-          composer install \
+          "$PHP_BIN" "$COMPOSER_BIN" install \
             --no-dev \
             --no-interaction \
             --prefer-dist \
             --optimize-autoloader
 
           # 古いLaravelキャッシュを削除
-          php artisan optimize:clear
+          "$PHP_BIN" artisan optimize:clear
 
           # 未実行のマイグレーションを反映
-          php artisan migrate --force
+          "$PHP_BIN" artisan migrate --force
 
           # 本番用設定をキャッシュ
-          php artisan config:cache
+          "$PHP_BIN" artisan config:cache
 
           # public配下を公開フォルダへ同期
           mkdir -p "$REMOTE_PUBLIC_PATH"
