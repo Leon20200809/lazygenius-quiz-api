@@ -1,0 +1,112 @@
+# GitHub Actions のワークフロー定義ファイル
+# mainブランチにpushされたときに、自動でXserverへLaravel APIをデプロイする
+#
+# デプロイ方針：
+# - Xserver上のLaravel本体を git pull で更新する
+# - Composerの本番用依存関係をインストールする
+# - 未実行のマイグレーションを反映する
+# - public配下をサブドメイン公開フォルダへ同期する
+# - 公開側の本番専用 index.php は上書きしない
+
+name: Deploy Laravel API for Xserver
+
+# mainブランチへのpushをトリガーにする
+on:
+  push:
+    branches:
+      - main
+
+  # GitHub画面から手動実行も可能
+  workflow_dispatch:
+
+# ワークフロー内で使い回す設定値
+env:
+  # Xserver SSH設定
+  REMOTE_USER: xs227617
+  REMOTE_HOST: sv16485.xserver.jp
+  REMOTE_PORT: 10022
+
+  # Xserver側のLaravel本体
+  REMOTE_APP_PATH: /home/xs227617/laravel-apps/lazygenius-quiz-api
+
+  # サブドメインの公開フォルダ
+  REMOTE_PUBLIC_PATH: /home/xs227617/lazygenius.dev/public_html/api.lazygenius.dev
+
+permissions:
+  contents: read
+
+# 同じデプロイの多重実行を防ぐ
+concurrency:
+  group: deploy-lazygenius-quiz-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Xserver
+    runs-on: ubuntu-latest
+
+    steps:
+      # XserverへSSH接続するための鍵を準備
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -Eeuo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh-keyscan \
+            -p "$REMOTE_PORT" \
+            "$REMOTE_HOST" \
+            >> ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+      # Laravel本体を更新し、公開フォルダへ同期
+      - name: Deploy Laravel application
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -i ~/.ssh/id_rsa \
+            -p "$REMOTE_PORT" \
+            "$REMOTE_USER@$REMOTE_HOST" \
+            "REMOTE_APP_PATH='$REMOTE_APP_PATH' REMOTE_PUBLIC_PATH='$REMOTE_PUBLIC_PATH' bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+
+          cd "$REMOTE_APP_PATH"
+
+          # 最新コードを取得
+          git pull --ff-only origin main
+
+          # 本番用依存関係をインストール
+          composer install \
+            --no-dev \
+            --no-interaction \
+            --prefer-dist \
+            --optimize-autoloader
+
+          # 古いLaravelキャッシュを削除
+          php artisan optimize:clear
+
+          # 未実行のマイグレーションを反映
+          php artisan migrate --force
+
+          # 本番用設定をキャッシュ
+          php artisan config:cache
+
+          # public配下を公開フォルダへ同期
+          mkdir -p "$REMOTE_PUBLIC_PATH"
+
+          rsync -a \
+            --delete \
+            --exclude="index.php" \
+            "$REMOTE_APP_PATH/public/" \
+            "$REMOTE_PUBLIC_PATH/"
+
+          echo "Deployment completed"
+          REMOTE
