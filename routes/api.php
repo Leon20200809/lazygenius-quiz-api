@@ -28,8 +28,11 @@ Route::get('quizzes/sample', function () {
     return response()->json($question, 200, [], JSON_UNESCAPED_UNICODE);
 });
 
-// quizzes/sample/answer にPOSTが来たら QuizController の answerSample メソッドを実行する
+// quizzes/sample/answer にPOSTリクエストが来たら QuizController の answerSample メソッドを実行する
 Route::post('quizzes/sample/answer', [QuizController::class, 'answerSample']);
 
-// quizzes/start にリクエストきたら10問取得
+// quizzes/start にGETリクエストきたら10問取得
 Route::get('/quizzes/start', [QuizController::class, 'start']);
+
+// quizzes/submit にPOSTリクエストが来たら10問分を一括採点する
+Route::post('/quizzes/submit', [QuizController::class, 'submit']);

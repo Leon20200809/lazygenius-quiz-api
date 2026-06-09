@@ -122,4 +122,85 @@ class QuizService
             })
             ->toArray();
     }
+
+    /**
+     * 10問分の回答を一括採点する
+     *
+     * question_id一覧を使って対象問題をまとめて取得し、
+     * LaravelのCollection上で回答と正解を照合する。
+     *
+     * ループ内ではDBアクセスしない。
+     *
+     * @param array<int, array{
+     *     question_id: int,
+     *     selected_answer: string
+     * }> $answers ユーザーが選択した10問分の回答
+     *
+     * @return array{
+     *     score: int,
+     *     total: int,
+     *     results: array<int, array{
+     *         question_id: int,
+     *         question_text: string,
+     *         selected_answer: string,
+     *         correct_answer: string,
+     *         is_correct: bool
+     *     }>
+     * }
+     */
+    public function submitAnswers(array $answers): array
+    {
+        // 回答データからquestion_idだけを取り出す
+        $question_ids = collect($answers)
+            ->pluck('question_id')
+            ->unique()
+            ->values();
+
+        // 対象問題を1回のSQLでまとめて取得する
+        // keyBy('id')により、問題IDからすぐ取得できる形に変える
+        $questions = Question::query()
+            ->whereIn('id', $question_ids)
+            ->get([
+                'id',
+                'question_text',
+                'correct_answer',
+            ])
+            ->keyBy('id');
+
+        // 存在しないquestion_idが含まれていた場合は処理を止める
+        if ($questions->count() !== $question_ids->count()) {
+            abort(422, '存在しない問題が含まれています。');
+        }
+
+        $score = 0;
+
+        // 回答配列を採点結果配列へ変換する
+        $results = collect($answers)
+            ->map(function (array $answer) use ($questions, &$score): array {
+                /** @var Question $question */
+                $question = $questions->get($answer['question_id']);
+
+                $is_correct = $answer['selected_answer'] === $question->correct_answer;
+
+                if ($is_correct) {
+                    $score++;
+                }
+
+                return [
+                    'question_id' => $question->id,
+                    'question_text' => $question->question_text,
+                    'selected_answer' => $answer['selected_answer'],
+                    'correct_answer' => $question->correct_answer,
+                    'is_correct' => $is_correct,
+                ];
+            })
+            ->values()
+            ->toArray();
+
+        return [
+            'score' => $score,
+            'total' => count($answers),
+            'results' => $results,
+        ];
+    }
 }
