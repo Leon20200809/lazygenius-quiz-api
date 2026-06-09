@@ -4,86 +4,102 @@
 
 Web開発用語の4択クイズを提供するLaravel製APIです。
 
-Next.js製フロントエンドとLaravel APIを分離し、問題取得・選択肢生成・正解判定をサーバー側で担当します。
+Next.js製フロントエンドとLaravel APIを分離し、問題取得、選択肢生成、回答バリデーション、一括採点、DBアクセスをサーバー側で担当します。
 
-## 公開API
+## 公開URL
 
-### ヘルスチェック
+- API: https://api.lazygenius.dev/
+- ヘルスチェック: https://api.lazygenius.dev/api/health
+- クイズ開始API: https://api.lazygenius.dev/api/quizzes/start
+- フロントエンド: https://lazygenius-quiz-front.vercel.app/
+- フロントエンドリポジトリ: https://github.com/Leon20200809/lazygenius-quiz-front
 
-```txt
-GET https://api.lazygenius.dev/api/health
-```
+## 概要
 
-[ヘルスチェックAPIを開く](https://api.lazygenius.dev/api/health)
+MySQLに保存したWeb開発用語から、ランダムに10問を取得して4択問題として返します。
 
-レスポンス例：
+誤答候補はCSVへ固定保存せず、同じカテゴリに属する別問題の正解用語からLaravel側で動的に生成します。
 
-```json
-{
-    "status": "ok",
-    "message": "Laravel API is running"
-}
-```
-
-### クイズ開始
+ユーザーが10問回答した後、回答配列を一括で受け取り、サーバー側で採点します。
 
 ```txt
-GET https://api.lazygenius.dev/api/quizzes/start
+GET /api/quizzes/start
+↓
+10問取得
+↓
+Next.js側で1問ずつ表示
+↓
+POST /api/quizzes/submit
+↓
+10問を一括採点
+↓
+score / total / resultsを返却
 ```
 
-[クイズ取得APIを開く](https://api.lazygenius.dev/api/quizzes/start)
+## 作った理由
 
-MySQLからランダムに10問取得し、各問題に4つの選択肢を生成して返します。
+Laravel APIとNext.jsを分離した構成を使い、実際のWebサービスに近い通信、データ管理、責務分離、デプロイの流れを学ぶために開発しました。
 
-正解データはレスポンスに含めません。
-
-## このプロジェクトを作った理由
-
-Laravel APIとNext.jsを分離した構成を使い、実際のWebサービスに近い通信・データ管理・デプロイの流れを学ぶために開発しています。
-
-単にクイズを表示するだけではなく、以下を実践することが目的です。
+このプロジェクトでは以下を実践しています。
 
 - LaravelによるREST API開発
-- Next.jsとLaravel間のAPI通信
+- ControllerとServiceの責務分離
 - MySQLによる問題データ管理
-- CSVからの初期データ登録
+- CSVからSeederを使った初期データ登録
 - 正解情報をフロントへ渡さない設計
-- GitHub Actionsによる自動デプロイ
-- レンタルサーバー制約下での安全なLaravel配置
+- 10問分の回答一括採点
+- Laravel標準バリデーション
+- ループ内DBアクセスを避ける設計
+- GitHub ActionsによるXserver自動デプロイ
+- レンタルサーバー制約下でのLaravel安全配置
 
 ## 主な機能
 
+- APIサーバーのヘルスチェック
 - Web開発用語クイズの取得
 - 1回10問のランダム出題
 - 同カテゴリを優先した誤答選択肢の自動生成
 - 正解を含む4つの選択肢のシャッフル
-- サーバー側での正解判定
+- 正解情報を含めない問題レスポンス
+- 10問分の回答バリデーション
+- 10問一括採点
+- 得点計算
+- 問題ごとの正誤結果生成
+- 存在しない問題IDの拒否
 - CSVからMySQLへの問題データ登録・更新
-- APIサーバーのヘルスチェック
-- GitHub ActionsによるXserverへの自動デプロイ
+- GitHub ActionsによるXserver自動デプロイ
 
 ## 技術構成
 
-| 分類           | 技術                    |
-| -------------- | ----------------------- |
-| バックエンド   | Laravel 13              |
-| 言語           | PHP 8.3                 |
-| データベース   | MySQL                   |
-| ORM            | Eloquent                |
-| 初期データ     | CSV / Seeder            |
-| 本番環境       | Xserver                 |
-| CI/CD          | GitHub Actions          |
+| 分類 | 技術 |
+|---|---|
+| バックエンド | Laravel 13 |
+| 言語 | PHP 8.3 |
+| データベース | MySQL |
+| ORM | Eloquent |
+| 初期データ | CSV / Seeder |
+| 本番環境 | Xserver |
+| CI/CD | GitHub Actions |
 | フロントエンド | Next.js（別リポジトリ） |
-
-フロントエンド：
-
-[Leon20200809/lazygenius-quiz-front](https://github.com/Leon20200809/lazygenius-quiz-front)
 
 ## API設計
 
 ### `GET /api/health`
 
 Laravel APIの生存確認に使用します。
+
+```txt
+GET https://api.lazygenius.dev/api/health
+```
+
+レスポンス例:
+
+```json
+{
+  "status": "ok",
+  "message": "Laravel API is running"
+}
+```
 
 ### `GET /api/quizzes/sample`
 
@@ -99,24 +115,163 @@ APIレスポンス形式の確認用エンドポイントです。
 
 MySQLから問題を10問取得し、4択クイズとして返します。
 
-レスポンス例：
+```txt
+GET https://api.lazygenius.dev/api/quizzes/start
+```
+
+レスポンス例:
 
 ```json
 {
-    "questions": [
-        {
-            "id": 245,
-            "question_text": "サーバー設定を自動化する道具",
-            "category": "インフラ",
-            "choices": ["Daemon", "Rollback", "Nginx", "Ansible"]
-        }
-    ]
+  "questions": [
+    {
+      "id": 245,
+      "question_text": "サーバー設定を自動化する道具",
+      "category": "インフラ",
+      "choices": [
+        "Daemon",
+        "Rollback",
+        "Nginx",
+        "Ansible"
+      ]
+    }
+  ]
 }
 ```
 
-## 重要な設計方針
+正解情報はレスポンスへ含めません。
 
-### 正解情報をフロントへ渡さない
+### `POST /api/quizzes/submit`
+
+10問分の回答を受け取り、一括採点します。
+
+リクエスト例:
+
+```json
+{
+  "answers": [
+    {
+      "question_id": 1,
+      "selected_answer": "HTML"
+    },
+    {
+      "question_id": 2,
+      "selected_answer": "CSS"
+    }
+  ]
+}
+```
+
+実際のリクエストでは`answers`が10件必要です。
+
+レスポンス例:
+
+```json
+{
+  "score": 7,
+  "total": 10,
+  "results": [
+    {
+      "question_id": 1,
+      "question_text": "情報に意味を与える骨格",
+      "selected_answer": "HTML",
+      "correct_answer": "HTML",
+      "is_correct": true
+    }
+  ]
+}
+```
+
+## バリデーション
+
+Laravel標準の`$request->validate()`を使用しています。
+
+```php
+$validated = $request->validate([
+    'answers' => ['required', 'array', 'size:10'],
+    'answers.*.question_id' => ['required', 'integer'],
+    'answers.*.selected_answer' => ['required', 'string'],
+]);
+```
+
+| ルール | 意味 |
+|---|---|
+| `required` | 必須 |
+| `array` | 配列であること |
+| `size:10` | 10件ちょうど |
+| `integer` | 整数 |
+| `string` | 文字列 |
+| `answers.*` | answers配列の全要素 |
+
+検査を通過した回答配列だけを`QuizService`へ渡します。
+
+## ControllerとServiceの責務分離
+
+### QuizController
+
+HTTPの受付を担当します。
+
+- Requestの受け取り
+- バリデーション
+- QuizServiceの呼び出し
+- JSONレスポンス返却
+
+```txt
+Request
+↓
+validate
+↓
+QuizService
+↓
+response()->json()
+```
+
+### QuizService
+
+クイズの業務ロジックを担当します。
+
+- クイズ開始用10問取得
+- 誤答候補生成
+- 選択肢シャッフル
+- 回答対象の問題一括取得
+- 正誤判定
+- 得点計算
+- 採点結果生成
+
+```txt
+Controller
+→ HTTPの箱
+
+Service
+→ 採点・選択肢生成の箱
+
+Model
+→ DBデータの箱
+```
+
+## 一括採点ロジック
+
+回答データから`question_id`を抽出し、`whereIn()`で対象問題をまとめて取得します。
+
+```txt
+10件の回答
+↓
+question_idを抽出
+↓
+whereIn()で対象問題を一括取得
+↓
+keyBy('id')
+↓
+Collection上で正解と照合
+↓
+score / total / resultsを生成
+```
+
+ループ内でDBアクセスは行いません。
+
+存在しない問題IDが含まれる場合は、422で処理を停止します。
+
+## 正解情報をフロントへ渡さない
 
 問題取得APIでは、以下の情報だけを返します。
 
@@ -131,47 +286,65 @@ MySQLから問題を10問取得し、4択クイズとして返します。
 - 正解フラグ
 - DB内部の判定情報
 
-ブラウザのDevToolsから正解を確認できないようにし、判定処理はLaravel側に集約します。
+```txt
+GET /api/quizzes/start
+→ 正解情報なし
 
-### 通信はまとめる
+POST /api/quizzes/submit
+→ 回答後に採点結果を返す
+```
 
-1問ごとにAPIへアクセスするのではなく、クイズ開始時に10問をまとめて取得します。
+ブラウザのDevToolsから回答前に正解を確認できないようにし、判定責務をLaravel側へ集約しています。
+
+## 通信をまとめる
+
+1問ごとにAPIへアクセスするのではなく、問題取得と回答送信をまとめます。
 
 ```txt
+開始時
 GET /api/quizzes/start
 ↓
 10問まとめて取得
-↓
-Next.js側で1問ずつ表示
 ```
-
-回答も最終的にはまとめてLaravelへ送信し、一括採点する構成を目指します。
-
-### ループ内でDBへアクセスしない
-
-N+1問題を避けるため、ループ内で問題や選択肢候補を1件ずつ取得しません。
 
 ```txt
-必要なデータをまとめて取得
+終了時
+POST /api/quizzes/submit
 ↓
-LaravelのCollection上で分類・加工
-↓
-各問題の選択肢を生成
+10問まとめて採点
 ```
 
-### SWR / React Queryを使用していない理由
+通信回数を抑え、フロント側では回答中の状態をReact stateで管理します。
 
-MVPでは、クイズ開始時に10問をまとめて取得し、回答中はフロント側のstateで管理します。
+## DB設計
 
-頻繁な再取得、キャッシュ同期、バックグラウンド更新がまだ必要ないため、SWRやReact Queryは現時点では過剰と判断し、標準の`fetch`を使用しています。
+### questionsテーブル
 
-スコア履歴、ランキング、管理画面などを追加し、サーバーデータの再取得や同期が重要になった段階で導入を検討します。
+| カラム | 内容 |
+|---|---|
+| `id` | 主キー |
+| `correct_answer` | 正解となる用語 |
+| `question_text` | 問題文 |
+| `category` | カテゴリ |
+| `is_active` | 出題対象か |
+| `created_at` | 作成日時 |
+| `updated_at` | 更新日時 |
 
-## データ構成
+### 重複判定
 
-初期データとして322件のWeb開発用語をCSVから登録しています。
+同じ正解用語でも、問題文が違えば別問題として扱います。
 
-CSVの主な列：
+```txt
+correct_answer + question_text
+```
+
+この組み合わせを重複判定のキーとして使用します。
+
+## CSV取り込み
+
+初期データはCSVで管理し、Laravel SeederでMySQLへ取り込みます。
+
+CSVの主な列:
 
 ```txt
 correct_answer
@@ -180,9 +353,57 @@ category
 isActive
 ```
 
-誤答選択肢はCSVへ固定保存せず、同じカテゴリに属する別問題の`correct_answer`からLaravel側で動的に生成します。
+Seederでは`correct_answer`と`question_text`の組み合わせをキーにして`updateOrCreate`を行います。
 
-候補が不足する場合は、他カテゴリの回答候補から補充します。
+これにより、CSVを再投入しても同じ問題が重複登録されません。
+
+## 選択肢生成ロジック
+
+誤答選択肢はLaravel側で動的に生成します。
+
+```txt
+1. 出題問題のcorrect_answerを正解にする
+2. 同カテゴリの別問題から誤答候補を取得
+3. 正解1つ + 誤答3つを作る
+4. 選択肢をシャッフル
+5. 正解情報を除外して返す
+```
+
+同カテゴリだけで誤答候補が足りない場合は、全カテゴリから不足分を補充します。
+
+## パフォーマンス方針
+
+MVP段階でも、ループ内でDBアクセスを繰り返さない設計を採用しています。
+
+### 選択肢生成
+
+```txt
+10問取得
+↓
+必要なカテゴリを集める
+↓
+誤答候補をまとめて取得
+↓
+Collection上で選択肢を生成
+```
+
+### 一括採点
+
+```txt
+question_idをまとめる
+↓
+whereIn()で問題を一括取得
+↓
+Collection上で採点
+```
+
+問題ごとにSQLを発行しないことで、N+1問題を避けています。
+
+## データ構成
+
+初期データとして322件のWeb開発用語をCSVから登録しています。
+
+誤答選択肢はCSVへ保存せず、Laravel側で生成します。
 
 ## ローカル環境構築
 
@@ -231,21 +452,35 @@ php artisan db:seed --class=QuestionSeeder
 
 ### 7. 開発サーバーを起動
 
+Laragonを使用する場合:
+
+```txt
+http://lazygenius-quiz-api.test
+```
+
+Artisanを使用する場合:
+
 ```bash
 php artisan serve
 ```
 
-確認URL：
-
 ```txt
-http://127.0.0.1:8000/api/health
+http://127.0.0.1:8000
+```
+
+### 8. 動作確認
+
+```bash
+curl http://lazygenius-quiz-api.test/api/health
+```
+
+```bash
+curl http://lazygenius-quiz-api.test/api/quizzes/start
 ```
 
 ## Xserverでの配置方針
 
-Xserverでは、サブドメインの公開フォルダをLaravelの`public`ディレクトリへ直接指定できません。
-
-そのため、Laravel本体と公開フォルダを分離しています。
+Laravel本体と公開フォルダを分離しています。
 
 ```txt
 Laravel本体
@@ -257,18 +492,16 @@ Laravel本体
 
 Laravel本体は`public_html`の外へ配置し、外部から直接アクセスできないようにしています。
 
-公開フォルダには、Laravelの`public`配下だけを配置します。
+公開フォルダにはLaravelの`public`配下のみを配置します。
 
 ```txt
 api.lazygenius.dev/
-├── index.php
-├── .htaccess
-└── その他の公開ファイル
+├─ index.php
+├─ .htaccess
+└─ その他の公開ファイル
 ```
 
-公開側の`index.php`はXserver本番専用です。
-
-`LARAVEL_BASE_PATH`で、非公開領域に置かれたLaravel本体を参照します。
+公開側の`index.php`は、本番Laravel本体を絶対パスで参照します。
 
 ```php
 define(
@@ -277,7 +510,7 @@ define(
 );
 ```
 
-これにより、Laravel本体の以下のファイルを公開領域の外へ隔離できます。
+以下を公開領域の外へ隔離しています。
 
 - `.env`
 - `app`
@@ -302,7 +535,7 @@ PHP 8.3でComposer install
 ↓
 Laravelキャッシュ削除
 ↓
-未実行のmigrationを反映
+未実行migrationを反映
 ↓
 本番設定をキャッシュ
 ↓
@@ -321,11 +554,11 @@ rsync -a \
 
 初回のみ本番用`index.php`を手動配置し、それ以降は自動デプロイで上書きしません。
 
-### GitHub ActionsでPHP 8.3を明示する理由
+## GitHub ActionsでPHP 8.3を明示する理由
 
 手動SSHではシェル関数によってPHP 8.3版Composerが実行されます。
 
-一方、GitHub ActionsからのSSHは非対話シェルであり、その関数が読み込まれません。
+GitHub ActionsからのSSHは非対話シェルであり、その関数が読み込まれません。
 
 そのため、ワークフロー内ではPHPとComposerを絶対パスで指定しています。
 
@@ -339,63 +572,76 @@ Composer
 
 これにより、サーバー標準のPHP 8.0が使われる環境差分を防いでいます。
 
-## 初回デプロイで行う作業
-
-初回のみ、以下を手動で実行します。
-
-```txt
-1. Xserver上でMySQLデータベースを作成
-2. Laravel本体をgit clone
-3. Composer依存関係をインストール
-4. 本番用.envを配置
-5. APP_KEYを生成
-6. migrationを実行
-7. QuestionSeederを実行
-8. 公開フォルダへ本番用index.phpを配置
-9. GitHub Actions Secretsを登録
-```
-
-2回目以降は、GitHubへpushすることで自動反映されます。
-
-## 本番環境での確認コマンド
-
-マイグレーション状態：
+## 本番確認
 
 ```bash
-php artisan migrate:status
+curl https://api.lazygenius.dev/api/health
 ```
-
-登録された問題数：
 
 ```bash
-php artisan tinker
+curl https://api.lazygenius.dev/api/quizzes/start
 ```
 
-```php
-App\Models\Question::count();
-```
+一括採点APIは、10件の回答JSONをPOSTして確認します。
 
-期待値：
+## 開発中に発生した問題
+
+### 本番APIが最新コードではなかった
+
+Vercel上のNext.jsから`POST /api/quizzes/submit`を実行した際、404になりました。
+
+原因はCORSではなく、Laravel本番環境へ一括採点APIの最新コードが反映されていなかったことでした。
 
 ```txt
-322
+ローカルで動く
+≠
+本番に最新コードがある
 ```
 
-## 今後の予定
+以下の順で切り分けました。
 
-- 10問分の回答送信API
-- 一括採点処理
-- Next.jsとの本番通信
-- CORS設定
-- 結果画面
-- ユーザー認証
+```txt
+Request URL
+Status
+Payload
+Response
+本番APIのroute
+最新コミット
+GitHub Actions
+デプロイ履歴
+```
+
+### 10件以外の回答を拒否
+
+フロント側の二重送信により11件の回答が送信された際、Laravelの`size:10`バリデーションが422を返しました。
+
+これにより、サーバー側の入力検査が正常に動作していることも確認できました。
+
+## テスト方針
+
+今後、PHPUnitを使用して以下を自動テストします。
+
+- ヘルスチェックAPI
+- クイズ開始API
+- 10問取得
+- 正解情報を返さないこと
+- 一括採点API
+- 正解数計算
+- 10件以外の回答を422にすること
+- 存在しない問題IDを拒否すること
+
+Postmanでは手動確認を行い、PHPUnitでは再現可能な自動検査を行う方針です。
+
+## 今後の改善
+
+- PHPUnitテスト追加
+- GitHub Actionsでテスト成功後のみデプロイ
+- Form Requestへのバリデーション分離
+- APIエラーレスポンスの統一
+- カテゴリ指定出題
+- 難易度追加
+- 問題管理API
 - スコア履歴
-- 苦手カテゴリ分析
 - ランキング
-- 問題管理画面
-- APIテスト
-- CIテスト
-
-## ライセンス
-
-学習およびポートフォリオ目的で開発しています。
+- キャッシュ導入
+- レート制限
