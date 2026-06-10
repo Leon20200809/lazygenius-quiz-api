@@ -84,6 +84,8 @@ jobs:
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.KNOWN_HOSTS }}
+
         run: |
           set -Eeuo pipefail
 
@@ -91,13 +93,9 @@ jobs:
           chmod 700 ~/.ssh
 
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          
           chmod 600 ~/.ssh/id_rsa
-
-          ssh-keyscan \
-            -p "$REMOTE_PORT" \
-            "$REMOTE_HOST" \
-            >> ~/.ssh/known_hosts
-
           chmod 600 ~/.ssh/known_hosts
 
       # Laravel本体を更新し、公開フォルダへ同期
