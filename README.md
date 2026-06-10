@@ -522,16 +522,24 @@ define(
 
 ## 自動デプロイ
 
-`main`ブランチへのpushをトリガーに、GitHub ActionsからXserverへ自動デプロイします。
+`main`ブランチへのpushをトリガーに、GitHub Actions上でPHPUnitを実行します。
+
+テストがすべて成功した場合のみ、Xserverへのデプロイを開始します。
 
 ```txt
 mainへpush
 ↓
-XserverへSSH接続
+PHP 8.3のテスト環境を準備
+↓
+Composer依存関係をインストール
+↓
+SQLiteメモリDBでPHPUnitを実行
+↓
+テスト成功時のみXserverへSSH接続
 ↓
 Laravel本体でgit pull
 ↓
-PHP 8.3でComposer install
+本番用Composer依存関係をインストール
 ↓
 Laravelキャッシュ削除
 ↓
@@ -541,6 +549,25 @@ Laravelキャッシュ削除
 ↓
 public配下を公開フォルダへ同期
 ```
+
+テスト失敗時はデプロイジョブを実行しないため、既存機能を壊したコードが本番へ反映される事故を防ぎます。
+
+現在は以下のAPI仕様をFeature Testで確認しています。
+
+ヘルスチェックAPIが正常なJSONを返す
+クイズ開始APIが10問と各4択を返す
+問題取得時に正解情報を公開しない
+一括採点APIがscore、total、resultsを正しく返す
+回答数不足を422で拒否する
+存在しない問題IDを422で拒否する
+不正な回答形式を422で拒否する
+
+テスト環境では、本番MySQLへ接続せずSQLiteのインメモリDBを使用します。
+```env
+DB_CONNECTION=sqlite
+DB_DATABASE=:memory:
+```
+これにより、テストごとに独立した使い捨てDBを使用し、本番データへ影響を与えずにAPI全体の動作を確認できます。
 
 公開側の`index.php`は本番専用のため、`rsync`の対象から除外しています。
 
