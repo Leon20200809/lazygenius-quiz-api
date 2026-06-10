@@ -41,9 +41,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+
+  test:
+    name: Run PHPUnit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # GitHub上のLaravelコードをテスト環境へ取得
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Laravelと同じPHP 8.3、SQLiteテストに必要な拡張を準備
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+
+      # PHPUnitを含む開発用Composer依存関係をインストール
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # CI用のLaravel環境ファイルとAPP_KEYを準備
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # テスト用SQLiteメモリDBで全テストを実行
+      - name: Run PHPUnit tests
+        run: php artisan test
+
+
   deploy:
     name: Deploy to Xserver
     runs-on: ubuntu-latest
+    needs: test
 
     steps:
       # XserverへSSH接続するための鍵を準備
