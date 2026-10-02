@@ -6,6 +6,10 @@ Web開発用語の4択クイズを提供するLaravel製APIです。
 
 Next.js製フロントエンドとLaravel APIを分離し、問題取得、選択肢生成、回答バリデーション、一括採点、DBアクセスをサーバー側で担当します。
 
+## 設計資料
+
+- [データフロー / アーキテクチャ](docs/architecture/data-flow.md)
+
 ## 公開URL
 
 - API: https://api.lazygenius.dev/
