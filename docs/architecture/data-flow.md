@@ -10,55 +10,46 @@
 
 ---
 
-## 1. クイズ開始〜採点までのデータフロー
+## 1. 全体像
+
+まずは細かい処理を省き、クイズAPIの基本経路だけを見る。
 
 ```mermaid
 flowchart TD
 
     FE["Next.js フロントエンド"]
-
     ROUTE["routes/api.php"]
-
     CTRL["QuizController"]
-
     SERVICE["QuizService"]
-
     MODEL["Question Model<br/>Eloquent ORM"]
-
     DB[("questions テーブル<br/>MySQL / MariaDB")]
 
-    FE -->|"GET /api/quizzes/start"| ROUTE
-    ROUTE -->|"start()"| CTRL
-    CTRL -->|"getStartQuestions()"| SERVICE
-
-    SERVICE -->|"Question::query()"| MODEL
+    FE -->|"HTTP Request"| ROUTE
+    ROUTE --> CTRL
+    CTRL --> SERVICE
+    SERVICE --> MODEL
     MODEL --> DB
-
-    DB -->|"出題対象10問<br/>カテゴリ別正解候補<br/>全正解候補"| MODEL
-    MODEL --> SERVICE
-
-    SERVICE -->|"正解1 + 誤答3<br/>shuffle<br/>correct_answerを除外"| CTRL
-
-    CTRL -->|"JSON<br/>id / question_text / category / choices"| FE
-
-    FE -->|"10問を表示<br/>回答はReact stateで保持"| FE
-
-    FE -->|"POST /api/quizzes/submit<br/>answers × 10"| ROUTE
-    ROUTE -->|"submit()"| CTRL
-
-    CTRL -->|"validate()<br/>required / array / size:10"| CTRL
-    CTRL -->|"submitAnswers()"| SERVICE
-
-    SERVICE -->|"question_idを抽出<br/>whereIn()"| MODEL
-    MODEL --> DB
-
-    DB -->|"対象問題を一括取得"| MODEL
-    MODEL --> SERVICE
-
-    SERVICE -->|"Collection上で採点<br/>score / total / results生成"| CTRL
-
-    CTRL -->|"採点結果JSON"| FE
 ```
+
+基本の流れ：
+
+```text
+Next.js
+↓
+Route
+↓
+Controller
+↓
+Service
+↓
+Model / Eloquent
+↓
+Database
+```
+
+DBから取得した結果や採点結果は、この経路を逆方向へ戻り、最終的にJSONとしてNext.jsへ返る。
+
+詳細な処理は後続の「クイズ開始API」「一括採点API」で分けて確認する。
 
 ### 対応する主なファイル
 
